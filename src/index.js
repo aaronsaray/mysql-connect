@@ -65,6 +65,9 @@ function portScan() {
   });
 }
 
+/**
+ * With this current row, if its an Open IP, try to connect
+ */
 function checkConnectMysql(result) {
   return new Promise((resolve, reject) => {
     if (result.type == STATUS_OPEN) {
@@ -89,22 +92,35 @@ function checkConnectMysql(result) {
   });
 }
 
-portScan()
-  .then(results => {
-    let promises = [];
+/**
+ * With all of our results, now launch a bunch of promises that attempt to scan for mysql by calling the checkConnectMysql command
+ */
+function queueUpMysqlScans(results) {
+  let promises = [];
 
-    results.forEach(result => {
-      promises.push(checkConnectMysql(result));
-    });
-
-    return Promise.all(promises);
-  })
-  .then(items => {
-    let table = new Table({
-      head: ["IP", "Port", "Status"]
-    });
-    items.forEach(result => {
-      table.push([result.ip, MYSQL_PORT, result.type]);
-    });
-    console.log(table.toString());
+  results.forEach(result => {
+    promises.push(checkConnectMysql(result));
   });
+
+  return Promise.all(promises);
+}
+
+/**
+ * Get all items and write as a table
+ */
+function writeTableOutput(items) {
+  let table = new Table({
+    head: ["IP", "Port", "Status"]
+  });
+  items.forEach(result => {
+    table.push([result.ip, MYSQL_PORT, result.type]);
+  });
+  console.log(table.toString());
+}
+
+/**
+ * Process this
+ */
+portScan()
+  .then(queueUpMysqlScans)
+  .then(writeTableOutput);
