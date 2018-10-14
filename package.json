@@ -1,0 +1,18 @@
+{
+  "name": "mysql-connect",
+  "version": "1.0.0",
+  "description": "Tool to try to connect to local mysql connections on network with default credentials",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cli-table": "^0.3.1",
+    "evilscan": "^1.7.1",
+    "mysql": "^2.16.0"
+  }
+}
