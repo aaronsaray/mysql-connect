@@ -7,6 +7,8 @@
 const evilscan = require("evilscan");
 const mysql = require("mysql");
 const Table = require("cli-table");
+const OS = require("os");
+const chalk = require("chalk");
 
 const STATUS_TIMEOUT = "Time out";
 const STATUS_REFUSED = "Refused";
@@ -21,13 +23,20 @@ const MYSQL_PORT = "3306";
  *
  * Returns a promise of the scan results
  * that will have all the results by type in an array
+ *
+ * Pass in the interface you want to scan on
  */
-function portScan() {
+function portScan(interfaceName) {
+  // this is very sloppy and does not handle errors very at all - but thats OK for now
+  let interface = OS.networkInterfaces()[interfaceName].filter(iface => {
+    return iface.family === "IPv4";
+  })[0];
+
   let results = [];
 
   return new Promise((resolve, reject) => {
     let options = {
-      target: "127.0.0.1",
+      target: interface.cidr,
       port: MYSQL_PORT,
       status: "TROU"
     };
@@ -80,7 +89,8 @@ function checkConnectMysql(result) {
 
       connection.connect(err => {
         if (err) {
-          reject(err);
+          resolve(result);
+          return;
         }
         connection.destroy();
         result.type = STATUS_AUTHENTICATED;
@@ -112,15 +122,46 @@ function writeTableOutput(items) {
   let table = new Table({
     head: ["IP", "Port", "Status"]
   });
-  items.forEach(result => {
-    table.push([result.ip, MYSQL_PORT, result.type]);
+  items.sort((a, b) => {
+    let aPad = a.ip.split(".").map(x => {
+      return x.padStart(3, "0");
+    });
+    let bPad = b.ip.split(".").map(x => {
+      return x.padStart(3, "0");
+    });
+    if (aPad < bPad) return -1;
+    if (aPad > bPad) return 1;
+    return 0;
   });
+
+  items.forEach(result => {
+    let status = "";
+
+    switch (result.type) {
+      case STATUS_AUTHENTICATED:
+        status = chalk.black.bgGreen(result.type);
+        break;
+      case STATUS_OPEN:
+        status = chalk.green(result.type);
+        break;
+      case STATUS_REFUSED:
+        status = chalk.red(result.type);
+        break;
+      case STATUS_TIMEOUT:
+      case STATUS_UNREACHABLE:
+        status = chalk.grey(result.type);
+        break;
+    }
+
+    table.push([result.ip, MYSQL_PORT, status]);
+  });
+
   console.log(table.toString());
 }
 
 /**
  * Process this
  */
-portScan()
+portScan("en0")
   .then(queueUpMysqlScans)
   .then(writeTableOutput);
